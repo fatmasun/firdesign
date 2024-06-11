@@ -1,0 +1,69 @@
+import numpy as np
+import scipy.signal as signal
+import matplotlib.pyplot as plt
+import streamlit as st
+
+def design_fir_filter(filter_type, cutoff, order, window, fs):
+    nyquist = 0.5 * fs
+    normalized_cutoff = np.array(cutoff) / nyquist
+    if filter_type == 'Low-pass':
+        b = signal.firwin(order, normalized_cutoff, window=window, pass_zero='lowpass')
+    elif filter_type == 'High-pass':
+        b = signal.firwin(order, normalized_cutoff, window=window, pass_zero='highpass')
+    elif filter_type == 'Band-pass':
+        b = signal.firwin(order, normalized_cutoff, window=window, pass_zero='bandpass')
+    elif filter_type == 'Band-stop':
+        b = signal.firwin(order, normalized_cutoff, window=window, pass_zero='bandstop')
+    return b
+
+def plot_frequency_response(b, fs):
+    w, h = signal.freqz(b, worN=8000)
+    fig, ax = plt.subplots()
+    ax.plot(0.5 * fs * w / np.pi, np.abs(h))
+    ax.set_title('Frequency Response')
+    ax.set_xlabel('Frequency [Hz]')
+    ax.set_ylabel('Gain')
+    ax.grid()
+    st.pyplot(fig)
+
+def plot_impulse_response(b):
+    impulse = np.zeros(len(b))
+    impulse[0] = 1
+    response = signal.lfilter(b, 1, impulse)
+    fig, ax = plt.subplots()
+    ax.stem(response)
+    ax.set_title('Impulse Response')
+    ax.set_xlabel('Sample')
+    ax.set_ylabel('Amplitude')
+    ax.grid()
+    st.pyplot(fig)
+
+def plot_pole_zero(b):
+    z, p, k = signal.tf2zpk(b, 1)
+    fig, ax = plt.subplots()
+    ax.scatter(np.real(z), np.imag(z), marker='o', label='Zeros')
+    ax.scatter(np.real(p), np.imag(p), marker='x', label='Poles')
+    ax.set_title('Pole-Zero Plot')
+    ax.set_xlabel('Real')
+    ax.set_ylabel('Imaginary')
+    ax.grid()
+    st.pyplot(fig)
+
+st.title('FIR Filter Designer')
+
+filter_type = st.selectbox('Filter Type', ['Low-pass', 'High-pass', 'Band-pass', 'Band-stop'])
+cutoff = st.text_input('Cutoff Frequencies (comma-separated for band filters)', '0.2')
+cutoff = [float(c) for c in cutoff.split(',')]
+order = st.slider('Filter Order', 1, 100, 10)
+window = st.selectbox('Window Function', ['hamming', 'hann', 'blackman'])
+fs = st.slider('Sampling Rate (Hz)', 1, 10000, 1000)
+
+if st.button('Design Filter'):
+    b = design_fir_filter(filter_type, cutoff, order, window, fs)
+    st.write('Filter Coefficients:', b)
+    st.write('Frequency Response:')
+    plot_frequency_response(b, fs)
+    st.write('Impulse Response:')
+    plot_impulse_response(b)
+    st.write('Pole-Zero Plot:')
+    plot_pole_zero(b)
